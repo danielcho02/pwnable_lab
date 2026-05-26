@@ -113,7 +113,112 @@ if __name__ == "__main__":
     else:
         print("Nope!")
 ```
-signal.alarm(15)를 이용해 15초의 제한 시간이 있다.
-`os.urandom` 함수를 사용하였는데 이는 값을 예측하기 굉장히 어렵다.
-따라서 앞으로도 문제에 `os.urandom`함수가 등장한다면 아무런 관련 정보 없이는 그 값을 예측하는 것은 불가능하다는 것을 전제로 두자.
+signal.alarm(15)를 이용해 15초의 제한 시간이 있다.   
+`os.urandom` 함수를 사용하였는데 이는 값을 예측하기 굉장히 어렵다.    
+따라서 앞으로도 문제에 `os.urandom`함수가 등장한다면 아무런 관련 정보 없이는 그 값을 예측하는 것은 불가능하다는 것을 전제로 두자.    
 
+key는 총 Dream_xxxx_Hacker로 key1과 key2 모두 8바이트이며 각각 2바이트의 random값을 가진다.
+```python
+    key = b'Dream_' + os.urandom(4) + b'Hacker'
+    key1 = key[:8]
+    key2 = key[8:]
+```   
+
+`DES.new(key1, DES.MODE_ECB)`를 이용하여 `ciper1` 암호를 생성한다.
+DES는 대칭키 암호이므로 키를 알면 암호화와 복호화가 모두 가능하다.    
+따라서 xxxx로 표현된 random 값을 알면 된다.
+`print(f"Hint for you :> {encrypt(b'DreamHack_blocks').hex()}")`에서 'DreamHack_blocks'를 암호화한 결과가 힌트로 주어지므로 이를 이용해서 key를 복구하면 될 것 같다.
+
+## 2. Exploit by Exhuasitve search
+4바이트 = 32비트 이므로 2^32의 경우의 수가 존재한다.
+그 키를 모두 대입해 보았을 때 `b'DreamHack_blocks`를 암호화한 결과가 일치하면 올바른 키로 추측할 수 있으므로 전수조사(Exhaustive search)를 진행한다.
+```python
+from pwn import *
+from Crypto.Cipher import DES
+from tqdm import trange
+
+io = process(["python3", "prob.py"])
+io.recvuntil((b"Hint for you :> "))
+hint = bytes.fromhex(io.recvline().strip().decode())
+print(f"Hint :> {hint.hex()}")
+
+for i in trange(0, 2**32):
+    key = b'Dream_' + i.to_bytes(4, "big") + b'Hacker'
+    key1 = key[:8]
+    key2 = key[8:]
+    cipher1 = DES.new(key1, DES.MODE_ECB)
+    cipher2 = DES.new(key2, DES.MODE_ECB)
+    encrypt = lambda x: cipher2.encrypt(cipher1.encrypt(x))
+    if encrypt(b'DreamHack_blocks') == hint:
+        print(f"Found keys :> {key1.hex()} {key2.hex()}")
+        break
+```
+하지만 이 방법은 시간이 너무 오래 걸려 15초안에 계산이 불가능할 뿐만 아니라 슈퍼컴퓨터의 경우에 실제로 전수조사가 가능하므로 이는 암호체계를 위협할 수 있다.
+따라서 DES 암호는 사용하지 않고 있으며 현대 기술로는 2^128회의 연산이 불가능하므로 16바이트 키를 가지는 AES 대칭키는 전수 조사를 이용한 공격이 어렵다.
+
+따라서 다른 방법을 사용해야한다.
+
+## 3. Exploit by Meet-in-the-Middle Attack
+우리가 알고 있는 식은 `cipher2.encrypt(cipher1.encrypt(b'DreamHack_blocks')) == hint`이다.
+그리고 올바른 key에 대해서 A가 평문, B가 암호문일 때 `cipher2.encrypt(cipher1.encrypt(A)) == B`를 만족한다.
+```   
+평문 A
+↓ key1로 DES 암호화
+중간값
+↓ key2로 DES 암호화
+최종 암호문 B
+```
+이므로 양변에 `ciper2.decrypt`를 취해주면 `cipher1.encrypt(A) == cipher2.decrypt(B)`를 만족한다.
+```
+key1 후보로 평문 A를 암호화한다.
+key2 후보로 암호문 B를 복호화한다.
+두 결과가 같은 중간값이면 key1, key2 후보가 맞다.
+```
+따라서 `cipher1.encrypt(b"DreamHack_blocks") == cipher2.decrypt(hint)`를 구현하고 공통된 key를 찾는다.
+
+최종 exploit 코드는 다음과 같다.
+
+```python
+from pwn import *
+from Crypto.Cipher import DES
+from tqdm import trange
+
+io = remote("host8.dreamhack.games", 8234)
+io.recvuntil(b"Hint for you :> ")
+hint = bytes.fromhex(io.recvline().strip().decode())
+print(f"Hint :> {hint.hex()}")
+
+plain = b"DreamHack_blocks"
+
+table = {}
+
+for i in trange(2**16):
+    key1 = b"Dream_" + i.to_bytes(2, "big")
+    cipher1 = DES.new(key1, DES.MODE_ECB)
+    mid = cipher1.encrypt(plain)
+    table[mid] = key1
+
+found_key1 = None
+found_key2 = None
+
+for j in trange(2**16):
+    key2 = j.to_bytes(2, "big") + b"Hacker"
+    cipher2 = DES.new(key2, DES.MODE_ECB)
+    mid = cipher2.decrypt(hint)
+
+    if mid in table:
+        found_key1 = table[mid]
+        found_key2 = key2
+        print(f"Found key1: {found_key1}")
+        print(f"Found key2: {found_key2}")
+        break
+
+cipher1 = DES.new(found_key1, DES.MODE_ECB)
+cipher2 = DES.new(found_key2, DES.MODE_ECB)
+
+target = b"give_me_the_flag"
+msg = cipher2.encrypt(cipher1.encrypt(target))
+
+io.sendlineafter(b"Send your encrypted message(hex) > ", msg.hex().encode())
+io.interactive()
+```
