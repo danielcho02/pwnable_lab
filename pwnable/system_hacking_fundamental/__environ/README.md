@@ -8,6 +8,15 @@ https://dreamhack.io/wargame/challenges/363/
 
 리눅스에서 제공하는 명령어들은 `/bin`, `/usr/bin`등의 디렉터리에 위치
 명령어 입력 시 환경 변수에 명시된 디렉터리에서 명령어를 탐색하고 실행하기 때문에 명령어의 경로를 직접 입력 X
+터미널 뿐만 아니라 프로그램에서도 프로세스를 로드하면서 환경 변수 초기화
+환경 변수에 대한 정보는 `STACK` 영역에 존재
+라이브러리 함수를 실행할 때 해당 정보를 참조하기 때문에 환경 변수를 가리키는 포인터 별도 선언
+```bash
+(.venv) (base) ➜  __environ readelf -s ./libc.so.6 | grep "environ"
+   133: 0000000000221200     8 OBJECT  WEAK   DEFAULT   35 _environ@@GLIBC_2.2.5
+   958: 0000000000221200     8 OBJECT  WEAK   DEFAULT   35 environ@@GLIBC_2.2.5
+```
+
 
 ```c
 // Name: environ.c
