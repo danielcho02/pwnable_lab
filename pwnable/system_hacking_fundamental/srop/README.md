@@ -117,3 +117,7 @@ EFLAGS: 0x10343 (CARRY parity adjust ZERO sign TRAP INTERRUPT direction overflow
 ---
 
 ## ✅ Key Takeaways
+- SROP는 `rt_sigreturn`을 이용해 레지스터 상태를 조작하는 ROP 기법이다.
+- `rax = 15` 상태에서 `syscall`을 실행하면 `rt_sigreturn`을 호출할 수 있다.
+- fake sigreturn frame으로 `rip`, `rsp`, syscall 인자를 원하는 값으로 설정할 수 있다.
+- NX가 켜져 있어도 SROP처럼 기존 gadget을 재사용하는 공격은 가능하다.
