@@ -23,6 +23,8 @@
 This repository is not only a place to store solved challenges.  
 It is designed as a long-term technical archive that records how I analyze a problem, identify the root cause, build an exploit or bypass strategy, and summarize what I learned from each challenge.
 
+Only self-authored write-ups, study notes, and solver or exploit scripts are retained in this public portfolio. Challenge-provided source code, binaries, libraries, loaders, deployment files, flags, archives, and debugging artifacts are intentionally excluded.
+
 <br>
 
 ---
@@ -113,27 +115,29 @@ I focus on understanding the internal behavior of programs and applications rath
 pwnable_lab/
 ├── pwnable/
 │   ├── README.md
+│   ├── linux_advanced/
 │   └── system_hacking_fundamental/
-│       ├── calling_convention/
-│       ├── command_injection/
-│       ├── nx_aslr_rop/
-│       ├── out_of_bound/
-│       ├── pie_relro/
-│       ├── shellcode/
-│       ├── stack_buffer_overflow/
-│       └── stack_canary/
 │
 ├── reversing/
 │   ├── README.md
 │   ├── dungeon_in_1983/
-│   ├── legacyopt/
+│   │   └── dungeon_in_1983.py
 │   ├── my_arx_cipher/
+│   │   └── my_arx_cipher.py
+│   ├── public/
+│   │   └── public.py
+│   ├── r_xor_t/
+│   │   └── r_xor_t.py
 │   ├── randzzz/
+│   │   ├── randzzz.py
+│   │   └── write-up.md
 │   ├── recover/
-│   ├── rev_basic_7/
-│   ├── rev_basic_8/
+│   │   └── recover.py
 │   ├── rev_basic_9/
+│   │   └── rev_basic_9.py
 │   └── secret_message/
+│       ├── secret_message.py
+│       └── imageviewer.py
 │
 └── web_hacking/
     └── README.md
