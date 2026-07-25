@@ -1,0 +1,6 @@
+*:Zone.Identifier
+core
+core.*
+**pycache**/
+.pytest_cache/
+.DS_Store
