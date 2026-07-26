@@ -1,17 +1,17 @@
 # 🧠 Use-After-Free(UAF)
 
 ## 📌 Definition
-Memory Allocator = 한정된 메모리 자원을 각 프로세스에 효율적으로 배분
-모든 프로세스는 실행 중에 메모리를 동적으로 할당 → 해제
+Memory Allocator = 한정된 메모리 자원을 각 프로세스에 효율적으로 배분   
+모든 프로세스는 실행 중에 메모리를 동적으로 할당 → 해제   
 
 ---
 
 ## 📄 ptmalloc2 (ptherad malloc 2)
-메모리의 효율적인 관리 - 메모리 낭비 방지, 빠른 메모리 재사용, (내.외부)메모리 단편화 방지
+메모리의 효율적인 관리 - 메모리 낭비 방지, 빠른 메모리 재사용, (내.외부)메모리 단편화 방지 
 
 ### 1. 청크(Chunk) 
 ptmalloc이 할당한 메모리 공간   
-header + data
+header + data   
 ![ptmalloc 청크 구조](https://dreamhack-lecture.s3.amazonaws.com/media/4b0c74248164c0b89c3c47d2beed97fd3b22a268520eb070b8c613e70b0d2fb9.png)
 
 | 이름 | 크기 | 의미 |
@@ -28,15 +28,15 @@ Fragmentation - LIFO < FIFO < address-orderd
 
 ### 2. bin
 사용이 끝난 청크들을 저장
-메모리 낭비를 막고 해제된 청크를 빠르게 재사용할 수 있음
-128 bins = 62 smallbin + 63 largebin + 1 unsortedbin + 2 not-used
+메모리 낭비를 막고 해제된 청크를 빠르게 재사용할 수 있음   
+128 bins = 62 smallbin + 63 largebin + 1 unsortedbin + 2 not-used   
 - smallbin: 32바이트 이상 1024 바이트 미만 크기를 갖는 청크 보관, circular doubly-linked list
 - fastbin: 32바이트 이상 128바이트 이하의 청크 저장(Linux), 단편화보다 속도 중요
 - largebin: 1024 바이트 이상의 크기를 갖는 청크 보관, best-fit
 - unsortedbin: 분류되지 않은 청크 보관
 - arena: fastbin, smallbin, largebin 등의 정보를 모두 담고 있는 객체, 최대 64개 생성가능
 
-### 3. tcache = thread local cache
+### 3. tcache = thread local cache    
 각 쓰레드에 독립적으로 할당되는 캐시 저장소
 LIFO, 단일 연결 리스트
 ptmalloc이 race condition을 고려하지 않고 접근 가능, bottleneck 완화
