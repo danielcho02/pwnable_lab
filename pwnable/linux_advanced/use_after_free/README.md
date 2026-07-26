@@ -3,6 +3,8 @@
 ## 📌 Definition
 Memory Allocator = 한정된 메모리 자원을 각 프로세스에 효율적으로 배분   
 모든 프로세스는 실행 중에 메모리를 동적으로 할당 → 해제   
+Use-After-Free = 메모리 참조에 사용한 포인터를 메모리 해제 후에 적절히 초기화하지 않아서 or 해제한 메모리를 초기화하지 않고 다음 청크에 재할당해주면서 발생하는 취약점
+브라우저 및 커널에서 자주 발견됨
 
 ---
 
@@ -41,11 +43,87 @@ Fragmentation - LIFO < FIFO < address-orderd
 LIFO, 단일 연결 리스트
 ptmalloc이 race condition을 고려하지 않고 접근 가능, bottleneck 완화
 
+
+## 📄 UAF
+### 1. Dangling Pointer
+유효하지 않은 메모리 영역을 가리키는 포인터
+`malloc` → `free` 이후에 포인터를 초기화하지 않으면 해제된 청크를 가리키는 Dangling Pointer가 됨
+
+### 2. Use After Free
+해제된 메모리에 접근할 수 있을 때 발생하는 취약점
+새롭게 할당한 영역을 초기화하지 않고 사용하면서 발생
+`malloc`, `free` 함수는 할당 or 해제할 메모리 데이터 초기화 X
+→ 메모리에 남아있던 데이터가 유출되거나 사용할 수 있음
+```c
+// Name: uaf.c
+// Compile: gcc -o uaf uaf.c -no-pie
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct NameTag {
+  char team_name[16];
+  char name[32];
+  void (*func)();
+};
+
+struct Secret {
+  char secret_name[16];
+  char secret_info[32];
+  long code;
+};
+
+int main() {
+  int idx;
+
+  struct NameTag *nametag;
+  struct Secret *secret;
+
+  secret = malloc(sizeof(struct Secret));
+
+  strcpy(secret->secret_name, "ADMIN PASSWORD");
+  strcpy(secret->secret_info, "P@ssw0rd!@#");
+  secret->code = 0x1337;
+
+  free(secret);
+  secret = NULL;
+
+  nametag = malloc(sizeof(struct NameTag));
+
+  strcpy(nametag->team_name, "security team");
+  memcpy(nametag->name, "S", 1);
+
+  printf("Team Name: %s\n", nametag->team_name);
+  printf("Name: %s\n", nametag->name);
+
+  if (nametag->func) {
+    printf("Nametag function: %p\n", nametag->func);
+    nametag->func();
+  }
+}
+```
+`Secret` struct를 먼저 할당하고 `secret_name`, `secret_info`, `code`에 값을 입력 후 `free(secret)`
+이후 사원 정보를 담고 있는 `nametag`생성, `team_name`, `name`에 각각 값을 입력하고 출력
+```bash
+$ gcc -o uaf uaf.c -no-pie
+$ ./uaf
+Team Name: security team
+Name: S@ssw0rd!@#
+Nametag function: 0x1337
+Segmentation fault (core dumped)
+```
+컴파일 후 실행하면 Name으로 `secret_info`의 문자열이 출력
+`ptmalloc2`는 요청된 크기와 비슷한 청크가 `bin`이나 `tcache`에 있는지 확인하고 재사용하기 때문
+`Nametag`와 `Secret`은 같은 크기의 구조체이므로 `secret`을 해제하고 `nametag`를 할당하면 같은 메모리 영역 사용
+
+초기화되지 않은 메모리의 값을 읽어내거나, 새로운 객체가 악의적인 값을 사용하도록 유도하여 프로그램의 정상적인 실행 방해 가능
+
 ---
 
-## ✅ Key Takeaways
-- 청크는 `header + data`로 구성
-- 해제된 청크는 크기에 따라 `tcache`, `fastbin`, `smallbin`, `largebin` 등에 저장
-- ptmalloc은 해제된 청크를 재사용하여 할당 속도를 높이고 메모리 낭비 줄임
-- tcache는 스레드별 `LIFO` 단일 연결 리스트로, 작은 청크를 빠르게 재사용
-- UAF는 해제된 청크를 가리키는 포인터를 계속 사용하면서 발생
+## 🔑 Key Takeaways
+
+- UAF는 `free()`된 메모리를 계속 참조하면서 발생
+- `malloc()`과 `free()`는 메모리 내부 데이터를 자동으로 초기화 X
+- 같은 크기의 청크를 다시 할당하면 이전에 해제된 메모리 영역이 재사용 가능
+- 이 과정에서 이전 데이터가 유출되거나 함수 포인터 같은 중요한 값이 잘못 사용될 가능성
+- UAF를 방지하려면 `free()` 후 포인터를 `NULL`로 초기화하고, 새로 할당한 메모리도 반드시 초기화 필요!
