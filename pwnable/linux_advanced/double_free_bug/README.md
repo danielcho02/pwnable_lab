@@ -1,0 +1,21 @@
+Concept
+# 🧠 
+
+## 📌 Definition
+
+---
+
+## 📄
+
+
+---
+
+## 📄 
+---
+
+## 📄 
+
+
+---
+
+## ✅ Key Takeaways
