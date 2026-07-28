@@ -3,7 +3,8 @@ https://dreamhack.io/wargame/challenges/92
 
 ## 📄 Vulnerability & Code Analysis
 
-이 문제는 HTML 내부에 포함된 JavaScript가 사용자의 6자리 생일을 입력받아 암호화된 이미지를 복호화하는 구조이다.
+이 문제는 HTML 내부의 JavaScript가 사용자의 6자리 생일을 입력받아,
+암호화된 이미지를 복호화하는 구조이다.
 
 입력창에는 다음과 같은 힌트가 존재한다.
 
@@ -39,51 +40,10 @@ _0x9a220(pass.value);
 
 ---
 
-### JavaScript 코드 분리
-
-HTML 전체를 분석해도 되지만, `<script>` 태그 내부만 따로 추출하면 더 편하게 볼 수 있다.
-
-```bash
-python3 - <<'PY'
-from pathlib import Path
-import re
-
-html = Path("secure-mail.html").read_text(
-    encoding="utf-8",
-    errors="ignore"
-)
-
-js = re.search(
-    r"<script[^>]*>(.*?)</script>",
-    html,
-    re.S
-).group(1)
-
-Path("challenge.js").write_text(
-    js,
-    encoding="utf-8"
-)
-PY
-```
-
-추출한 JavaScript를 정리한다.
-
-```bash
-pip install jsbeautifier
-js-beautify challenge.js -o challenge.pretty.js
-```
-
-이후 VS Code에서 다음 문자열을 검색하면 핵심 함수로 이동할 수 있다.
-
-```text
-function _0x9a220
-```
-
----
-
 ### 원본 핵심 코드
 
-원본 코드는 거의 한 줄로 붙어 있으며, 핵심 부분만 정리하면 다음과 같다.
+원본 코드는 대부분 한 줄로 붙어 있으며,
+핵심 부분만 보기 좋게 정리하면 다음과 같다.
 
 ```javascript
 function _0x9a220(_0x30bf04) {
@@ -123,7 +83,9 @@ function _0x9a220(_0x30bf04) {
     ];
 
     dfbora =
-        _0x2fef58['decrypt'](file);
+        _0x2fef58['decrypt'](
+            file
+        );
 
     // 복호화된 바이트를 문자열로 변환
     // MD5 검증
@@ -131,11 +93,12 @@ function _0x9a220(_0x30bf04) {
 }
 ```
 
-이 코드를 바로 읽기는 어렵기 때문에 난독화 구조부터 확인해야 한다.
+이 코드를 그대로 읽기 어렵기 때문에
+먼저 문자열 난독화 구조를 확인하였다.
 
 ---
 
-### 난독화 구조
+### 문자열 난독화 구조
 
 코드 상단에는 매우 많은 문자열이 들어 있는 배열이 존재한다.
 
@@ -148,9 +111,38 @@ var _0x2297 = [
 ];
 ```
 
-이 배열은 실제 문자열을 직접 저장하지 않고 Base64와 RC4 방식으로 변형된 문자열들을 저장하고 있다.
+이 배열에는 `"from"`, `"map"`, `"length"`와 같은 실제 문자열이
+그대로 저장되어 있지 않다.
 
-그 아래에는 배열을 회전시키는 코드가 존재한다.
+원래 문자열은 다음과 같은 형태로 변형되어 저장되어 있다.
+
+```text
+원래 문자열
+    ↓
+RC4 처리
+    ↓
+Base64 인코딩
+    ↓
+_0x2297 배열에 저장
+```
+
+프로그램이 실행될 때는 반대로 처리한다.
+
+```text
+_0x2297 배열 값
+    ↓
+Base64 디코딩
+    ↓
+RC4 복호화
+    ↓
+원래 문자열 반환
+```
+
+---
+
+### 배열 회전
+
+문자열 배열 아래에는 다음 코드가 존재한다.
 
 ```javascript
 (function (_0x35fa1a, _0x2297e4) {
@@ -167,162 +159,495 @@ var _0x2297 = [
 }(_0x2297, 0x1c4));
 ```
 
-이 코드는 `_0x2297` 배열의 순서를 변경한다. 따라서 단순히 배열 인덱스만 보고는 원래 문자열을 확인하기 어렵다.
-
-이후 `_0x2439` 함수가 문자열 디코더 역할을 한다.
+핵심 연산은 다음과 같다.
 
 ```javascript
-var _0x2439 = function (
-    _0x35fa1a,
-    _0x2297e4
+array.push(
+    array.shift()
+);
+```
+
+`shift()`는 배열의 첫 번째 값을 제거하고,
+`push()`는 그 값을 배열의 마지막에 추가한다.
+
+예를 들어 다음 배열이 있다고 가정한다.
+
+```javascript
+["A", "B", "C", "D"]
+```
+
+한 번 회전하면 다음과 같이 된다.
+
+```javascript
+["B", "C", "D", "A"]
+```
+
+두 번 회전하면 다음과 같이 된다.
+
+```javascript
+["C", "D", "A", "B"]
+```
+
+이 문제에서는 배열을 452번 회전한다.
+
+따라서 원본 배열의 인덱스를 그대로 확인하면
+실제 실행 시 참조되는 문자열과 위치가 달라진다.
+
+---
+
+### `_0x2439` 문자열 디코더
+
+배열 회전 이후 `_0x2439` 함수가 정의된다.
+
+원본 코드는 복잡하지만 역할을 단순화하면 다음과 같다.
+
+```javascript
+function decodeString(
+    index,
+    key
 ) {
-    _0x35fa1a =
-        _0x35fa1a - 0x0;
+    index = Number(index);
 
-    var _0x2439b6 =
-        _0x2297[_0x35fa1a];
+    const encoded =
+        rotatedStringTable[index];
 
-    ...
+    const decoded =
+        base64Decode(encoded);
 
-    _0x2439b6 =
-        _0x2439['sUjgBF'](
-            _0x2439b6,
-            _0x2297e4
+    const plaintext =
+        rc4Decrypt(
+            decoded,
+            key
         );
 
-    return _0x2439b6;
-};
+    return plaintext;
+}
+```
+
+실제 함수 이름은 다음과 같다.
+
+```javascript
+_0x2439
 ```
 
 호출 형태는 다음과 같다.
 
 ```javascript
-_0x2439('0x99', '3itY')
-```
-
-첫 번째 인자는 문자열 배열의 위치이며, 두 번째 인자는 RC4 복호화에 사용되는 키이다.
-
-그리고 다음과 같이 별칭이 만들어진다.
-
-```javascript
-var _0x225843 = _0x2439;
-```
-
-따라서 다음 두 표현은 같은 의미이다.
-
-```javascript
-_0x2439('0x99', '3itY')
-_0x225843('0x99', '3itY')
-```
-
-`_0x9a220` 함수 안에서는 다시 별칭이 만들어진다.
-
-```javascript
-var _0x540d50 = _0x225843;
-```
-
-따라서 다음 코드는 런타임에 문자열을 복호화한 뒤 실제 속성명으로 사용한다.
-
-```javascript
-Array[
-    _0x540d50('0x99', '3itY')
-]
-```
-
-복호화 결과는 다음 의미가 된다.
-
-```javascript
-Array.from
-```
-
-마찬가지로 다음 코드는:
-
-```javascript
-[
-    _0x540d50('0xe2', 'G(su')
-]
-```
-
-다음 의미가 된다.
-
-```javascript
-.map
-```
-
-따라서 원본 코드:
-
-```javascript
-Array[
-    _0x540d50('0x99', '3itY')
-](
-    _0x3eebe5(
-        _0x30bf04,
-        null,
-        true
-    )
-)[
-    _0x540d50('0xe2', 'G(su')
-](
-    x => x.charCodeAt()
+_0x2439(
+    '0x99',
+    '3itY'
 )
 ```
 
-는 다음과 같이 해석할 수 있다.
+두 인자의 의미는 다음과 같다.
 
-```javascript
-Array.from(
-    _0x3eebe5(
-        password,
-        null,
-        true
-    )
-).map(
-    x => x.charCodeAt()
-)
+```text
+첫 번째 인자: 회전된 문자열 배열의 인덱스
+두 번째 인자: RC4 복호화 키
 ```
 
 ---
 
-### 난독화 문자열 실제 값 확인
+### 디코더가 Base64와 RC4인 이유
 
-브라우저에서 HTML 파일을 연 다음 F12를 눌러 Console 탭으로 이동한다.
-
-다음과 같이 디코더를 직접 호출하면 실제 문자열을 확인할 수 있다.
+`_0x2439` 내부의 `_0x27e6d1` 함수에는
+다음 문자열이 존재한다.
 
 ```javascript
-_0x225843('0x99', '3itY')
-_0x225843('0xe2', 'G(su')
+'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/='
+```
+
+이는 Base64 문자표이다.
+
+따라서 `_0x27e6d1`은 Base64 디코더임을 알 수 있다.
+
+또한 `_0x52c29f` 함수는 다음 구조를 가진다.
+
+```javascript
+for (let i = 0; i < 256; i++) {
+    S[i] = i;
+}
+```
+
+이후 키를 이용하여 배열을 섞는다.
+
+```javascript
+for (let i = 0; i < 256; i++) {
+    j = (
+        j +
+        S[i] +
+        key.charCodeAt(
+            i % key.length
+        )
+    ) % 256;
+
+    [S[i], S[j]] =
+        [S[j], S[i]];
+}
+```
+
+마지막으로 입력 바이트와 키스트림을 XOR한다.
+
+```javascript
+output += String.fromCharCode(
+    inputByte ^
+    keyStreamByte
+);
+```
+
+이 구조는 RC4의 KSA와 PRGA 동작과 일치한다.
+
+따라서 `_0x2439`는 다음 순서로 문자열을 복원한다.
+
+```text
+1. 배열 인덱스로 값 선택
+2. Base64 디코딩
+3. 두 번째 인자를 키로 RC4 복호화
+4. 실제 문자열 반환
+```
+
+---
+
+### 디코더는 새로 만든 것이 아니라 원본을 직접 실행
+
+문자열 디코더를 별도로 다시 구현한 것이 아니다.
+
+HTML이 로드되면 원본에 포함된 `_0x2439` 함수도 함께 실행되므로,
+브라우저 Console에서 원본 디코더를 직접 호출할 수 있다.
+
+코드에는 다음과 같은 별칭이 존재한다.
+
+```javascript
+var _0x225843 =
+    _0x2439;
+```
+
+그리고 `_0x9a220` 함수 안에서는 다시 다음 별칭을 사용한다.
+
+```javascript
+var _0x540d50 =
+    _0x225843;
+```
+
+따라서 다음 세 이름은 모두 같은 디코더를 가리킨다.
+
+```text
+_0x2439
+=
+_0x225843
+=
+_0x540d50
+```
+
+브라우저에서 HTML 파일을 연 뒤
+F12의 Console 탭에서 다음을 실행하면 된다.
+
+```javascript
+_0x225843(
+    '0x99',
+    '3itY'
+)
+```
+
+출력:
+
+```text
+from
+```
+
+다음 호출을 실행한다.
+
+```javascript
+_0x225843(
+    '0xe2',
+    'G(su'
+)
+```
+
+출력:
+
+```text
+map
 ```
 
 여러 개를 한 번에 확인할 수도 있다.
 
 ```javascript
 [
-    _0x225843('0x99', '3itY'),
-    _0x225843('0xe2', 'G(su'),
-    _0x225843('0x29', 'd%09')
+    _0x225843(
+        '0x99',
+        '3itY'
+    ),
+
+    _0x225843(
+        '0xe2',
+        'G(su'
+    ),
+
+    _0x225843(
+        '0x29',
+        'd%09'
+    )
 ]
 ```
 
-이 방법은 난독화 문자열을 직접 하나씩 확인하는 방식이다.
+즉 디코더의 결과는 추측한 것이 아니라,
+원본에 포함된 문자열 테이블과 디코더를 그대로 실행하여 확인하였다.
 
-하지만 전체 문자열을 모두 해제할 필요는 없다. 이 문제에서는 다음과 같은 이미 드러난 문자열들이 존재한다.
+---
 
-```text
-charCodeAt
-decrypt
-Cipher Block Chaining
-document.write
-file
+### 원본 표현 변환
+
+원본에는 다음 코드가 존재한다.
+
+```javascript
+Array[
+    _0x540d50(
+        '0x99',
+        '3itY'
+    )
+]
 ```
 
-이 문자열들을 기준으로 데이터 흐름을 추적하면 핵심 로직을 복원할 수 있다.
+디코더 결과는 다음과 같다.
+
+```text
+_0x540d50('0x99', '3itY')
+→ "from"
+```
+
+따라서 코드는 다음과 같이 바뀐다.
+
+```javascript
+Array[
+    "from"
+]
+```
+
+JavaScript에서 다음 두 표현은 같은 의미이다.
+
+```javascript
+Array["from"]
+```
+
+```javascript
+Array.from
+```
+
+마찬가지로 다음 표현을 확인한다.
+
+```javascript
+[
+    _0x540d50(
+        '0xe2',
+        'G(su'
+    )
+]
+```
+
+디코더 결과:
+
+```text
+_0x540d50('0xe2', 'G(su')
+→ "map"
+```
+
+따라서 다음과 같이 바뀐다.
+
+```javascript
+["map"]
+```
+
+점 표기법으로 바꾸면 다음과 같다.
+
+```javascript
+.map
+```
+
+---
+
+### 핵심 코드 변환 과정
+
+원본 코드:
+
+```javascript
+_0x2ee89c =
+    Array[
+        _0x540d50(
+            '0x99',
+            '3itY'
+        )
+    ](
+        _0x3eebe5(
+            _0x30bf04,
+            null,
+            raw = !![]
+        )
+    )[
+        _0x540d50(
+            '0xe2',
+            'G(su'
+        )
+    ](
+        _0x66324e =>
+            _0x66324e[
+                'charCodeAt'
+            ]()
+    );
+```
+
+문자열 디코더 결과를 대입하면 다음과 같다.
+
+```javascript
+_0x2ee89c =
+    Array["from"](
+        _0x3eebe5(
+            _0x30bf04,
+            null,
+            true
+        )
+    )["map"](
+        _0x66324e =>
+            _0x66324e.charCodeAt()
+    );
+```
+
+점 표기법으로 정리하면 다음과 같다.
+
+```javascript
+_0x2ee89c =
+    Array.from(
+        _0x3eebe5(
+            _0x30bf04,
+            null,
+            true
+        )
+    ).map(
+        _0x66324e =>
+            _0x66324e.charCodeAt()
+    );
+```
+
+변수명을 역할에 맞게 바꾸면 다음과 같이 해석할 수 있다.
+
+```javascript
+digestBytes =
+    Array.from(
+        hashFunction(
+            password,
+            null,
+            true
+        )
+    ).map(
+        character =>
+            character.charCodeAt()
+    );
+```
+
+여기까지가 문자열 난독화를 실제 값으로 치환한 과정이다.
+
+---
+
+### `!![]`의 의미
+
+원본에는 다음 표현이 존재한다.
+
+```javascript
+raw = !![]
+```
+
+JavaScript에서 빈 배열은 truthy 값이다.
+
+```javascript
+Boolean([])
+```
+
+결과:
+
+```javascript
+true
+```
+
+따라서:
+
+```javascript
+![]
+```
+
+는 `false`이고,
+
+```javascript
+!![]
+```
+
+는 `true`이다.
+
+결국 다음 호출은:
+
+```javascript
+_0x3eebe5(
+    password,
+    null,
+    raw = !![]
+)
+```
+
+다음과 같은 의미이다.
+
+```javascript
+_0x3eebe5(
+    password,
+    null,
+    true
+)
+```
+
+---
+
+### 식별자 난독화
+
+문자열 디코더를 실행해도 다음 이름들은 그대로 남는다.
+
+```text
+_0x3eebe5
+_0x2ee89c
+_0x2fef58
+dfbora
+```
+
+이 이름들은 암호화된 문자열이 아니라,
+난독화 과정에서 무작위 이름으로 변경된 함수명과 변수명이다.
+
+따라서 원래 이름 자체를 복구할 수는 없다.
+
+대신 함수의 입력값, 출력값, 내부 상수,
+호출 위치를 분석하여 의미 있는 이름으로 다시 붙인다.
+
+```text
+_0x3eebe5
+→ MD5 관련 함수
+
+_0x2ee89c
+→ MD5 결과 16바이트
+
+_0x2fef58
+→ AES-CBC 객체
+
+file
+→ ciphertext
+
+dfbora
+→ decryptedBytes
+```
+
+즉 원래 이름을 되살린 것이 아니라,
+동작을 보고 사람이 의미 있는 이름으로 재명명한 것이다.
 
 ---
 
 ### `_0x3eebe5`가 MD5인 이유
 
-`_0x9a220` 함수에서 입력값은 다음 함수로 전달된다.
+`_0x9a220` 함수에서 사용자 입력은 다음 함수로 전달된다.
 
 ```javascript
 _0x3eebe5(
@@ -332,7 +657,7 @@ _0x3eebe5(
 )
 ```
 
-`_0x3eebe5` 함수는 다음과 같은 구조이다.
+`_0x3eebe5` 함수는 다음과 같다.
 
 ```javascript
 function _0x3eebe5(
@@ -364,13 +689,14 @@ function _0x3eebe5(
 }
 ```
 
-인자의 의미를 정리하면 다음과 같다.
+분기 구조를 정리하면 다음과 같다.
 
-```text
-첫 번째 인자: 해시할 메시지
-두 번째 인자: HMAC 키
-세 번째 인자: raw 출력 여부
-```
+| HMAC Key | Raw 출력 | 호출 함수 | 의미 |
+|---|---:|---|---|
+| 없음 | false | `_0x42115c` | Hex MD5 |
+| 없음 | true | `_0x4cd335` | Raw MD5 |
+| 있음 | false | `_0x4fb15f` | Hex HMAC-MD5 |
+| 있음 | true | `_0x2f5ed0` | Raw HMAC-MD5 |
 
 현재 호출은 다음과 같다.
 
@@ -382,7 +708,8 @@ _0x3eebe5(
 )
 ```
 
-두 번째 인자가 `null`이므로 일반 해시를 수행하며, 세 번째 인자가 `true`이므로 16진수 문자열이 아니라 raw 바이트를 반환한다.
+두 번째 인자가 `null`이므로 HMAC이 아닌 일반 해시를 사용하고,
+세 번째 인자가 `true`이므로 16진수 문자열이 아닌 raw 결과를 반환한다.
 
 즉 다음과 같다.
 
@@ -390,7 +717,11 @@ _0x3eebe5(
 raw MD5(password)
 ```
 
-또한 내부 함수 `_0x1bb977`에는 다음 상수들이 존재한다.
+---
+
+### MD5 구현 확인
+
+내부 함수 `_0x1bb977`에는 다음 초기값이 존재한다.
 
 ```javascript
 0x67452301
@@ -399,7 +730,8 @@ raw MD5(password)
 0x10325476
 ```
 
-이 값들을 32비트 unsigned 값으로 표현하면 다음과 같다.
+JavaScript signed 32비트 값을
+unsigned 값으로 표현하면 다음과 같다.
 
 ```text
 0x67452301
@@ -408,9 +740,9 @@ raw MD5(password)
 0x10325476
 ```
 
-이는 MD5 알고리즘의 초기 레지스터 값과 정확히 일치한다.
+이 값들은 MD5 알고리즘의 초기 레지스터 값과 정확히 일치한다.
 
-또한 내부에는 MD5의 4개 라운드 연산에 해당하는 함수들이 존재한다.
+또한 내부에는 다음 네 함수가 존재한다.
 
 ```text
 _0x3170e2
@@ -419,35 +751,46 @@ _0x182ec0
 _0x5527b8
 ```
 
-각 함수는 MD5의 F, G, H, I 연산에 해당한다.
+내부 연산은 각각 다음 MD5 라운드 함수와 일치한다.
 
-따라서 `_0x3eebe5`는 MD5 및 HMAC-MD5를 구현한 함수이며, 현재 호출 방식에서는 raw MD5 결과 16바이트를 반환한다.
+```text
+F(X, Y, Z) = (X & Y) | (~X & Z)
+G(X, Y, Z) = (X & Z) | (Y & ~Z)
+H(X, Y, Z) = X ^ Y ^ Z
+I(X, Y, Z) = Y ^ (X | ~Z)
+```
+
+따라서 `_0x3eebe5`는 MD5와 HMAC-MD5를 감싸는 래퍼 함수임을 확인할 수 있다.
 
 ---
 
 ### MD5 결과를 바이트 배열로 변환
 
-`_0x3eebe5`의 반환값은 raw 문자열이다.
+`_0x3eebe5`는 raw MD5 결과를
+JavaScript binary string 형태로 반환한다.
 
 ```javascript
-_0x3eebe5(
-    password,
-    null,
-    true
-)
+rawDigest =
+    _0x3eebe5(
+        password,
+        null,
+        true
+    );
 ```
 
 이 문자열의 각 문자를 `charCodeAt()`으로 변환한다.
 
 ```javascript
-Array.from(
-    rawMD5
-).map(
-    x => x.charCodeAt()
-)
+digestBytes =
+    Array.from(
+        rawDigest
+    ).map(
+        character =>
+            character.charCodeAt()
+    );
 ```
 
-결과는 다음과 같은 16바이트 배열이다.
+결과는 다음 형태의 16바이트 배열이다.
 
 ```text
 [
@@ -458,46 +801,52 @@ Array.from(
 ]
 ```
 
-이 배열이 `_0x2ee89c` 변수에 저장된다.
+이 값이 `_0x2ee89c`에 저장된다.
 
 ---
 
 ### AES-CBC 확인
 
-코드 안에는 다음 문자열이 직접 존재한다.
+`_0x9a220` 내부에서는 다음 생성자가 호출된다.
+
+```javascript
+new _0x58829a['_0x14c3a3'][
+    _0x540d50(
+        '0x29',
+        'd%09'
+    )
+](
+    _0x2ee89c,
+    _0x2ee89c
+);
+```
+
+문자열 디코더 결과로 선택된 프로퍼티는
+AES mode 객체 내부의 CBC 생성자로 연결된다.
+
+해당 생성자 `_0x2ef5df` 내부에는
+다음 문자열이 직접 존재한다.
 
 ```javascript
 'Cipher Block Chaining'
 ```
 
-해당 문자열은 `_0x2ef5df` 생성자 안에 있다.
+또한 생성자 내부에서 첫 번째 인자는 AES key로 사용되고,
+두 번째 인자는 IV로 저장된다.
+
+의미 있는 이름으로 바꾸면 다음과 같다.
 
 ```javascript
-var _0x2ef5df = function (
-    _0x4d87e7,
-    _0x1687b7
+function CBC(
+    key,
+    iv
 ) {
-    this[...] =
-        'Cipher Block Chaining';
-
-    ...
-
-    this['_0x274b61'] =
-        _0x2cacb0(
-            _0x1687b7,
-            true
-        );
-
-    this[...] =
-        new _0x46dc18(
-            _0x4d87e7
-        );
-};
+    this.iv = iv;
+    this.aes = new AES(key);
+}
 ```
 
-첫 번째 인자는 AES key이며, 두 번째 인자는 IV이다.
-
-`_0x9a220`에서는 다음과 같이 같은 값을 두 번 전달한다.
+`_0x9a220`에서는 같은 `_0x2ee89c` 값을 두 번 전달한다.
 
 ```javascript
 new CBC(
@@ -506,15 +855,13 @@ new CBC(
 )
 ```
 
-따라서 실제 암호화 설정은 다음과 같다.
+따라서 실제 설정은 다음과 같다.
 
 ```text
 AES key = MD5(password)
 AES IV  = MD5(password)
 Mode    = CBC
 ```
-
-즉 입력된 생일의 MD5 값이 AES key와 IV로 동시에 사용된다.
 
 ---
 
@@ -534,37 +881,49 @@ file = [
 
 ```javascript
 dfbora =
-    _0x2fef58['decrypt'](
+    _0x2fef58[
+        'decrypt'
+    ](
         file
     );
 ```
 
-따라서 `file` 배열은 AES-CBC 암호문이다.
+따라서 `file`은 AES-CBC 암호문이고,
+`dfbora`는 복호화된 바이트 배열이다.
 
-복호화된 바이트는 `String.fromCharCode()`를 통해 문자열로 변환된다.
+의미 있는 이름으로 바꾸면 다음과 같다.
+
+```javascript
+decryptedBytes =
+    aesCbc.decrypt(
+        ciphertext
+    );
+```
+
+복호화된 바이트는 문자열로 변환된다.
 
 ```javascript
 plaintext = "";
 
 for (
     let i = 0;
-    i < dfbora.length;
+    i < decryptedBytes.length;
     i++
 ) {
     plaintext +=
         String.fromCharCode(
-            dfbora[i]
+            decryptedBytes[i]
         );
 }
 ```
 
-정상적으로 복호화되면 평문은 다음 형식으로 시작한다.
+정상적으로 복호화된 평문은 다음 형식으로 시작한다.
 
 ```text
 data:image/png;base64,
 ```
 
-마지막으로 이 문자열을 이미지의 `src` 속성에 넣는다.
+마지막으로 평문을 이미지의 `src` 속성으로 사용한다.
 
 ```javascript
 document.write(
@@ -576,9 +935,82 @@ document.write(
 
 ---
 
+### 복원된 전체 로직
+
+난독화 문자열을 실제 값으로 치환하고,
+함수와 변수의 역할을 기준으로 이름을 다시 붙이면
+핵심 로직은 다음과 같다.
+
+```javascript
+function checkPassword(
+    password
+) {
+    const rawDigest =
+        rawMD5(
+            password
+        );
+
+    const key =
+        Array.from(
+            rawDigest
+        ).map(
+            character =>
+                character.charCodeAt()
+        );
+
+    const aesCbc =
+        new CBC(
+            key,
+            key
+        );
+
+    const ciphertext = [
+        0x68,
+        0xda,
+        0xe1,
+        0x1b,
+        ...
+    ];
+
+    const decryptedBytes =
+        aesCbc.decrypt(
+            ciphertext
+        );
+
+    let plaintext = "";
+
+    for (
+        const byte
+        of decryptedBytes
+    ) {
+        plaintext +=
+            String.fromCharCode(
+                byte
+            );
+    }
+
+    document.write(
+        '<img src="' +
+        plaintext +
+        '">'
+    );
+}
+```
+
+```text
+숨겨진 문자열
+→ 원본 디코더 실행으로 실제 값 확인
+
+난독화된 변수명과 함수명
+→ 내부 동작과 호출 흐름을 보고 의미 있는 이름으로 재명명
+```
+
+---
+
 ### 취약점
 
-이 문제의 핵심 취약점은 암호화 자체보다 매우 작은 비밀번호 공간과 클라이언트 측 검증 구조에 있다.
+이 문제의 핵심 취약점은 암호화 알고리즘 자체보다
+매우 작은 비밀번호 공간과 클라이언트 측 검증 구조에 있다.
 
 입력값은 6자리 생일이다.
 
@@ -592,9 +1024,11 @@ YYMMDD
 000000 ~ 999999
 ```
 
-즉 최대 1,000,000개이다. 실제 날짜만 생성하면 약 36,500개 정도만 검사하면 된다.
+즉 최대 1,000,000개이다.
 
-또한 다음 요소들이 모두 클라이언트에 노출되어 있다.
+실제 날짜만 생성하면 약 36,500개 정도만 검사하면 된다.
+
+또한 다음 정보가 모두 클라이언트에 노출되어 있다.
 
 ```text
 암호화 알고리즘
@@ -610,7 +1044,11 @@ IV 생성 방식
 key = MD5(6자리 생일)
 ```
 
-MD5에는 salt가 없으며, AES key와 IV가 동일한 값이다. 따라서 서버와 통신하지 않고도 완전한 오프라인 브루트포싱이 가능하다.
+MD5에는 salt가 없으며,
+AES key와 IV가 동일한 값이다.
+
+따라서 서버와 통신하지 않고도
+완전한 오프라인 브루트포싱이 가능하다.
 
 보안상 문제점을 정리하면 다음과 같다.
 
@@ -622,7 +1060,6 @@ MD5에는 salt가 없으며, AES key와 IV가 동일한 값이다. 따라서 서
 5. 복호화 평문의 시작 문자열을 예측할 수 있음
 6. 모든 검증이 클라이언트 측에서 수행됨
 ```
-
 
 ## 🗡️ Exploit / Solver Strategy
 
