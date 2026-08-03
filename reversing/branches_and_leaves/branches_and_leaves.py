@@ -5,13 +5,12 @@ e = ELF('./main')
 
 targets = [u32(e.read(0x4020 + 4 * i, 4)) for i in range(16)]
 
-# dword_4060이 속한 섹션을 통째로 읽는다 (배열이 61415보다 훨씬 큼)
 TREE_ADDR = 0x4060
 sec = next(s for s in e.sections
            if s.header.sh_addr <= TREE_ADDR < s.header.sh_addr + s.header.sh_size)
 end = sec.header.sh_addr + sec.header.sh_size
 raw = e.read(TREE_ADDR, end - TREE_ADDR)
-tree = list(struct.unpack('<%di' % (len(raw) // 4), raw))   # signed int
+tree = list(struct.unpack('<%di' % (len(raw) // 4), raw))  
 print('[*] tree entries:', len(tree))
 
 def walk(x):
@@ -23,7 +22,7 @@ def walk(x):
         if not (0 <= idx < len(tree)):
             return None
         result = tree[idx]
-        if step != 15 and not (0 <= result <= 0x3FFFF):   # 0x3FFFF (5F), <=
+        if step != 15 and not (0 <= result <= 0x3FFFF): 
             return None
     return result
 
@@ -33,12 +32,11 @@ for x in range(0x10000):
     if y is not None:
         rev.setdefault(y, x)
 
-# 어느 그룹이 안 풀렸는지 먼저 확인 (디버그용)
 missing = [i for i, t in enumerate(targets) if t not in rev]
 if missing:
     print('[!] unresolved groups:', missing)
 else:
     flag = ''.join('%04x' % rev[t] for t in targets)
     print('DH{%s}' % flag)
-    io = process(['./main', flag])   # 실제 바이너리로 검증
+    io = process(['./main', flag])   
     print(io.recvall().decode())
