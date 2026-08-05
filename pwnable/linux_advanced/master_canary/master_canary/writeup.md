@@ -240,7 +240,7 @@ p.interactive()
 [*] Leaked canary: 0xb6902b1b75ac2600
 [*] Switching to interactive mode
 $ cat flag
-DH{5784e01c14862d84172ca055720f512ec3dd7e3b4421c691f638b1152cd62312}
+DH{<FLAG_REDACTED>}
 [*] Got EOF while reading in interactive
 $
 [*] Interrupted

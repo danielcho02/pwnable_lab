@@ -38,7 +38,7 @@ p.interactive()
 Input: $ id
 uid=1000(rao) gid=1000(rao) groups=1000(rao)
 $ cat flag
-DH{5f47cd0e441bdc6ce8bf6b8a3a0608dc}
+DH{<FLAG_REDACTED>}
 ```
 <br>
 cf) 터미널에서 직접 payload를 입력하는 방법

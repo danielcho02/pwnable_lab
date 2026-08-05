@@ -177,6 +177,6 @@ p.interactive()
     Stripped:   No
 [*] Switching to interactive mode
 $ cat flag
-DH{9bca8b793b7415a5452a4ba4f7945315e1a99a0d91c67ca27d45746f73f479b8}
+DH{<FLAG_REDACTED>}
 $
 ```

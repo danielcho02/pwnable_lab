@@ -113,9 +113,9 @@ print(io.recvall().decode())
     SHSTK:      Enabled
     IBT:        Enabled
 [*] tree entries: 524288
-DH{d8f794325872bab95cfaa117545c6c0b77059a74f4dd31d8c2bf130a59745d77}
+DH{<FLAG_REDACTED>}
 [+] Starting local process './main': pid 12416
 [+] Receiving all data: Done (69B)
 [*] Process './main' stopped with exit code 0 (pid 12416)
-DH{d8f794325872bab95cfaa117545c6c0b77059a74f4dd31d8c2bf130a59745d77}
+DH{<FLAG_REDACTED>}
 ```

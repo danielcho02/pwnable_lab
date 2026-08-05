@@ -153,7 +153,7 @@ p.interactive()
     PIE:        PIE enabled
 [*] Switching to interactive mode
 $ cat flag
-DH{8fb591cfc1a2e30d0a33d53ace8e4973d40c28a4eb8d6e20581a2e8bdd393a91}
+DH{<FLAG_REDACTED>}
 [*] Got EOF while reading in interactive
 $
 [*] Interrupted

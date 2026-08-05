@@ -292,7 +292,7 @@ p.interactive()
 libc_base: 0x7f5ca924b000
 libc_environ: 0x7f5ca946c200
 [*] Switching to interactive mode
- DH{dd7e95bf7ea608017206757444a1ff168720e0d18ded2aef99558d00e063b8a1}
+ DH{<FLAG_REDACTED>}
 > [*]
 ```
   

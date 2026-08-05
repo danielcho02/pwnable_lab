@@ -200,6 +200,6 @@ print(b"DH{" + part1 + part2 + b"}")
 ```
 을 이용해 flag를 각각 복원한 뒤 합치면
 ```bash
-b'DH{c8b48ac08bbe00068ffb6606e2cf6ba0002c0dc4dd0aba20ac8d0608860048e0}'
+b'DH{<FLAG_REDACTED>}'
 ```
 flag를 구할 수 있다.

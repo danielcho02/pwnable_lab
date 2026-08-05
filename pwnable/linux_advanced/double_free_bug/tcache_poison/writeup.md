@@ -244,7 +244,7 @@ p.interactive()
 [+] one_gadget: 0x7f50d3499432
 [*] Switching to interactive mode
 $ cat flag
-DH{f9e02bd556d6643f11d9a83570ef5192795cf91c6b443cd603e9f83787ab02fc}
+DH{<FLAG_REDACTED>}
 [*] Got EOF while reading in interactive
 $
 [*] Interrupted

@@ -146,6 +146,6 @@ p.interactive()
 + You can send a signal to dreamhack server.           +
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 Signal:$ cat flag.txt
-DH{5a5e56589d32087ec7a37f3b70a84483eae7404e9072173ec7571b632b804760}
+DH{<FLAG_REDACTED>}
 $
 ```

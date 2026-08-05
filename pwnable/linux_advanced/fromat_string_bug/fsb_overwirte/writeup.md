@@ -104,6 +104,6 @@ r.interactive()
 [*] Switching to interactive mode
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         pAAAA\x1c$
 $ cat flag
-DH{b283dec57b17112a4e9aa6d5499c0f28}
+DH{<FLAG_REDACTED>}
 $
 ```

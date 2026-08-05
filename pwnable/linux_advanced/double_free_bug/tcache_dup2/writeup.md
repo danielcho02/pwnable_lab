@@ -95,7 +95,7 @@ p.interactive()
     IBT:        Enabled
 [*] Switching to interactive mode
 $ cat flag
-DH{025244482b3e8a14a2f2f1d984a753fa71a275918d61f6c2e3ae0980e2cb2a96}
+DH{<FLAG_REDACTED>}
 $
 [*] Interrupted
 [*] Closed connection to host3.dreamhack.games port 8567
