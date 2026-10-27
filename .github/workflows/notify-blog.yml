@@ -1,7 +1,7 @@
 name: notify-blog
 
 # Tells danielcho02/blog-src which writeups/notes changed so it can import them and redeploy.
-# Runs only on pushes to main (never on pull requests), so the token is not exposed to forks.
+# Runs on pushes to main and by hand, never on pull requests, so the token is not exposed to forks.
 on:
   push:
     branches: [main]
@@ -46,5 +46,13 @@ jobs:
             exit 0
           fi
           echo "changed: $paths"
-          jq -n --arg paths "$paths" '{event_type: "pwnable-lab-push", client_payload: {paths: $paths}}' \
-            | gh api repos/danielcho02/blog-src/dispatches --input -
+          if ! jq -n --arg paths "$paths" '{event_type: "pwnable-lab-push", client_payload: {paths: $paths}}' \
+            | gh api repos/danielcho02/blog-src/dispatches --input -; then
+            # Private repos answer 404 when the token cannot see them; tell the two cases apart.
+            if gh api repos/danielcho02/blog-src --jq .full_name >/dev/null 2>&1; then
+              echo "::error::token can read blog-src but cannot dispatch: set Contents to Read and write"
+            else
+              echo "::error::token cannot see blog-src: add blog-src to the token's repository access"
+            fi
+            exit 1
+          fi
