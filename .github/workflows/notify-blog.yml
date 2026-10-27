@@ -6,6 +6,12 @@ on:
   push:
     branches: [main]
     paths: ['**.md']
+  workflow_dispatch:
+    inputs:
+      paths:
+        description: 'Comma-separated paths to send instead of the last push diff'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -22,14 +28,19 @@ jobs:
           GH_TOKEN: ${{ secrets.BLOG_DISPATCH_TOKEN }}
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
+          INPUT_PATHS: ${{ inputs.paths }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
             echo "::error::BLOG_DISPATCH_TOKEN secret is not set"
             exit 1
           fi
-          # A new branch has an all-zero "before"; fall back to the previous commit.
-          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then BEFORE="$AFTER~1"; fi
-          paths=$(git diff --name-only --diff-filter=AM "$BEFORE" "$AFTER" -- '*.md' | paste -sd, -)
+          if [ -n "$INPUT_PATHS" ]; then
+            paths="$INPUT_PATHS"
+          else
+            # A new branch (or a manual run) has no usable "before"; fall back to the previous commit.
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then BEFORE="$AFTER~1"; fi
+            paths=$(git diff --name-only --diff-filter=AM "$BEFORE" "$AFTER" -- '*.md' | paste -sd, -)
+          fi
           if [ -z "$paths" ]; then
             echo "no added or modified markdown"
             exit 0
