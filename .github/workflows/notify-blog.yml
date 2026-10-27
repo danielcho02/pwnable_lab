@@ -1,0 +1,39 @@
+name: notify-blog
+
+# Tells danielcho02/blog-src which writeups/notes changed so it can import them and redeploy.
+# Runs only on pushes to main (never on pull requests), so the token is not exposed to forks.
+on:
+  push:
+    branches: [main]
+    paths: ['**.md']
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Send changed markdown paths to blog-src
+        env:
+          GH_TOKEN: ${{ secrets.BLOG_DISPATCH_TOKEN }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::BLOG_DISPATCH_TOKEN secret is not set"
+            exit 1
+          fi
+          # A new branch has an all-zero "before"; fall back to the previous commit.
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then BEFORE="$AFTER~1"; fi
+          paths=$(git diff --name-only --diff-filter=AM "$BEFORE" "$AFTER" -- '*.md' | paste -sd, -)
+          if [ -z "$paths" ]; then
+            echo "no added or modified markdown"
+            exit 0
+          fi
+          echo "changed: $paths"
+          jq -n --arg paths "$paths" '{event_type: "pwnable-lab-push", client_payload: {paths: $paths}}' \
+            | gh api repos/danielcho02/blog-src/dispatches --input -
