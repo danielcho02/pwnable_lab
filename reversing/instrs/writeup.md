@@ -144,8 +144,6 @@ payload: l-ar-ae
 
 ```python
 #!/usr/bin/env python3
-import sys
-
 from pwn import *
 
 PROGRAM = b'l-ar-ae'
@@ -183,28 +181,28 @@ def simulate(prog):
         pc = min(pc + 1, 7)
 
 
-if __name__ == '__main__':
-    log.info('simulated steps: %d', simulate(PROGRAM))
+log.info('simulated steps: %d', simulate(PROGRAM))
 
-    if len(sys.argv) >= 3:
-        p = remote(sys.argv[1], int(sys.argv[2]))
-    else:
-        p = process('./prob')
+p = remote("host3.dreamhack.games", 14977)
+# p = process("./prob")
 
-    p.recvuntil(b'Enter Your Program\n')
-    p.send(PROGRAM)
-    print(p.recvall(timeout=10).decode(errors='replace').strip())
+p.recvuntil(b"Enter Your Program\n")
+p.send(PROGRAM)
+
+print(p.recvall(timeout=10).decode(errors="replace").strip())
 ```
 
 ## 🏳️ cat flag
 
-로컬에서는 `./flag`를 직접 만들어 확인했다. 시뮬레이터 계산값과 바이너리의 `Result`가 정확히 일치한다.
+시뮬레이터가 계산한 스텝 수와 바이너리가 출력한 `Result`가 정확히 일치한다.
 
 ```text
 $ python instrs.py
 [*] simulated steps: 197377
+[+] Opening connection to host3.dreamhack.games on port 14977: Done
+[+] Receiving all data: Done (104B)
 Result: 197377
 Good, get the flag: DH{<FLAG_REDACTED>}
 ```
 
-원격은 동일 payload로 `python instrs.py <host> <port>`.
+로컬에서 먼저 돌려 볼 때는 `./flag`를 직접 만들어 두고 `p = process("./prob")` 쪽 주석을 바꿔 끼우면 된다.

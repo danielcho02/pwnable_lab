@@ -31,8 +31,6 @@
 # 총 256 * 771 + 1 = 197377 스텝 > 99999.
 # alarm(5) 이 걸려 있지만 20만 스텝은 순식간이라 문제없다.
 
-import sys
-
 from pwn import *
 
 PROGRAM = b'l-ar-ae'  # 7바이트, read(0, prog, 8) 안에 들어간다
@@ -70,14 +68,12 @@ def simulate(prog):
         pc = min(pc + 1, 7)
 
 
-if __name__ == '__main__':
-    log.info('simulated steps: %d', simulate(PROGRAM))
+log.info('simulated steps: %d', simulate(PROGRAM))
 
-    if len(sys.argv) >= 3:
-        p = remote(sys.argv[1], int(sys.argv[2]))
-    else:
-        p = process('./prob')
+p = remote("host3.dreamhack.games", 14977)
+# p = process("./prob")
 
-    p.recvuntil(b'Enter Your Program\n')
-    p.send(PROGRAM)
-    print(p.recvall(timeout=10).decode(errors='replace').strip())
+p.recvuntil(b"Enter Your Program\n")
+p.send(PROGRAM)
+
+print(p.recvall(timeout=10).decode(errors="replace").strip())
